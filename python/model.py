@@ -33,7 +33,7 @@ def fit_model(X_raw, y_raw):
 
     # TODO: train your model here.
     
-    # print ("Hola Mundo")
+
     
     return np.mean(y_raw)  # By default, training a model that returns a mean value (a mean model).
 
