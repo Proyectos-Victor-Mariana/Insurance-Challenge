@@ -1,5 +1,8 @@
 """In this module, we ask you to define your pricing model, in Python."""
 
+# Creo que lo logramos 
+
+
 import pickle
 import numpy as np
 import pandas as pd
