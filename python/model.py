@@ -1,13 +1,43 @@
 """In this module, we ask you to define your pricing model, in Python."""
 
-#Creo que lo logramos 3
 
 import pickle
 import numpy as np
 import pandas as pd
 
+
+
 # TODO: import your modules here.
 # Don't forget to add them to requirements.txt before submitting.
+
+
+df=pd.read_csv("training.csv")
+
+df[["Min","Med1","Med2","Max"]]=pd.get_dummies(df.pol_coverage)
+df[['Biannual', 'Monthly', 'Quarterly', 'Yearly']]=pd.get_dummies(df.pol_pay_freq)
+df[['AllTrips', 'Professional', 'Retired', 'WorkPrivate']]=pd.get_dummies(df.pol_usage)
+df[['0', 'F', 'M']]=pd.get_dummies(df.drv_sex2)
+df[['Diesel', 'Gasoline', 'Hybrid']]=pd.get_dummies(df.vh_fuel)
+df[['Commercial', 'Tourism']]=pd.get_dummies(df.vh_type)
+
+df["pol_payd"]=df["pol_payd"].replace("No",1).replace("Yes",0)
+df["drv_drv2"]=df["drv_drv2"].replace("No",1).replace("Yes",0)
+df["drv_sex1"]=df["drv_sex1"].replace("F",1).replace("M",0)
+df["drv_age2"]=df["drv_age2"].fillna(0)
+df["drv_age_lic2"]=df["drv_age_lic2"].fillna(0)
+
+
+
+new_df=df.drop(["pol_coverage","pol_pay_freq","pol_usage","id_policy",\
+                "drv_sex2","vh_fuel","vh_type","vh_make_model"],axis=1)
+new_df1=new_df[new_df["year"]==1]
+new_df1=new_df1.drop("year",axis=1)
+
+
+new_df2=new_df1.dropna()
+corrmatrix=pd.DataFrame(np.corrcoef(new_df2.T),index=new_df2.columns,columns=new_df2.columns)
+
+
 
 
 
