@@ -4,19 +4,32 @@
 import pickle
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import LSTM
+from tensorflow.keras.layers import Dropout
 
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
 
 # TODO: import your modules here.
 # Don't forget to add them to requirements.txt before submitting.
 
 
+# DATA
+#%%
+
+
 df=pd.read_csv("training.csv")
+
+
 
 df[["Min","Med1","Med2","Max"]]=pd.get_dummies(df.pol_coverage)
 df[['Biannual', 'Monthly', 'Quarterly', 'Yearly']]=pd.get_dummies(df.pol_pay_freq)
 df[['AllTrips', 'Professional', 'Retired', 'WorkPrivate']]=pd.get_dummies(df.pol_usage)
-df[['0', 'F', 'M']]=pd.get_dummies(df.drv_sex2)
+df[['Sex2_0', 'Sex2_F', 'Sex2_M']]=pd.get_dummies(df.drv_sex2)
 df[['Diesel', 'Gasoline', 'Hybrid']]=pd.get_dummies(df.vh_fuel)
 df[['Commercial', 'Tourism']]=pd.get_dummies(df.vh_type)
 
@@ -26,20 +39,92 @@ df["drv_sex1"]=df["drv_sex1"].replace("F",1).replace("M",0)
 df["drv_age2"]=df["drv_age2"].fillna(0)
 df["drv_age_lic2"]=df["drv_age_lic2"].fillna(0)
 
-
-
-new_df=df.drop(["pol_coverage","pol_pay_freq","pol_usage","id_policy",\
+df=df.drop(["pol_coverage","pol_pay_freq","pol_usage",\
                 "drv_sex2","vh_fuel","vh_type","vh_make_model"],axis=1)
-new_df1=new_df[new_df["year"]==1]
-new_df1=new_df1.drop("year",axis=1)
+
+df=df.dropna()
+id_train, id_test= train_test_split(df["id_policy"].unique(),test_size=0.20, random_state=5)
+
+df1=df[df["year"]==1].drop("year",axis=1).sort_values(by=["id_policy"]).reset_index(drop=True)
+scaler1 = MinMaxScaler()
+df1["claim_amount"] = pd.DataFrame(scaler1.fit_transform(np.array(df1["claim_amount"]).reshape(-1, 1)))
+
+df2=df[df["year"]==2].drop("year",axis=1 ).sort_values(by=["id_policy"]).reset_index(drop=True)
+scaler2 = MinMaxScaler()
+df2["claim_amount"] = pd.DataFrame(scaler2.fit_transform(np.array(df2["claim_amount"]).reshape(-1, 1)))
+
+df3=df[df["year"]==3].drop("year",axis=1).sort_values(by=["id_policy"]).reset_index(drop=True)
+scaler3 = MinMaxScaler()
+df3["claim_amount"] = pd.DataFrame(scaler3.fit_transform(np.array(df3["claim_amount"]).reshape(-1, 1)))
+
+df4=df[df["year"]==4].drop("year",axis=1).sort_values(by=["id_policy"]).reset_index(drop=True)
+scaler4 = MinMaxScaler()
+df4["claim_amount"] = pd.DataFrame(scaler4.fit_transform(np.array(df4["claim_amount"]).reshape(-1, 1)))
+
+claim_amount_train = np.array(df4[df4["id_policy"].isin(id_train)]["claim_amount"])
+claim_amount_test = np.array(df4[df4["id_policy"].isin(id_test)]["claim_amount"])
 
 
-new_df2=new_df1.dropna()
-corrmatrix=pd.DataFrame(np.corrcoef(new_df2.T),index=new_df2.columns,columns=new_df2.columns)
 
 
+label_con=['pol_no_claims_discount','pol_duration', 'pol_sit_duration',
+        'drv_age1', 'drv_age_lic1','drv_age2','drv_age_lic2','vh_age',
+        'vh_speed', 'vh_value', 'vh_weight','population','town_surface_area','claim_amount']
+
+label_dis=["Min","Med1","Med2","Max",'Biannual', 'Monthly', 'Quarterly',\
+        'Yearly','AllTrips', 'Professional', 'Retired', 'WorkPrivate',\
+        'Sex2_0', 'Sex2_F', 'Sex2_M','Diesel', 'Gasoline', 'Hybrid','Commercial', 'Tourism']
 
 
+#X_Training_Data=np.array(list(zip(df1.drop("claim_amount",axis=1).values.tolist(),
+#                                  df2.drop("claim_amount",axis=1).values.tolist(),
+#                                  df3.drop("claim_amount",axis=1).values.tolist())))
+
+
+X_Training_Data=np.array(list(zip(df1[df1["id_policy"].isin(id_train)].drop("id_policy",axis=1).values.tolist(),
+                                  df2[df2["id_policy"].isin(id_train)].drop("id_policy",axis=1).values.tolist(),
+                                  df3[df3["id_policy"].isin(id_train)].drop("id_policy",axis=1).values.tolist())))
+
+
+X_Test_Data=np.array(list(zip(df1[df1["id_policy"].isin(id_test)].drop("id_policy",axis=1).values.tolist(),
+                              df2[df2["id_policy"].isin(id_test)].drop("id_policy",axis=1).values.tolist(),
+                              df3[df3["id_policy"].isin(id_test)].drop("id_policy",axis=1).values.tolist())))
+
+      
+
+
+# model   
+#%%    
+rnn = Sequential()
+
+#Adding our first LSTM layer
+
+rnn.add(LSTM(units = 1, input_shape = (3, X_Training_Data.shape[2])))
+
+#Perform some dropout regularization
+
+rnn.add(Dropout(0.2))
+
+#Adding our output layer
+
+rnn.add(Dense(units = 1))
+
+    
+#Compiling the recurrent neural network
+
+rnn.compile(optimizer = 'adam', loss = 'mean_squared_error')
+
+#Training the recurrent neural network
+
+rnn.fit(X_Training_Data, claim_amount_train, epochs = 100)
+
+predictions = rnn.predict(X_Test_Data)
+
+plt.plot(predictions)
+
+unscaled_predictions = scaler4.inverse_transform(predictions)
+
+unscaled_resutados = np.array(scaler4.inverse_transform(claim_amount_test.reshape(-1, 1)))
 
 # Feel free to create any number of other functions, constants and classes to use
 # in your model (e.g., a preprocessing function).
